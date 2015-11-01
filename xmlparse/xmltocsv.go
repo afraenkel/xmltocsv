@@ -1,5 +1,3 @@
-/* Parse a list of xml blobs into a csv file  */
-
 package main
 
 import (
@@ -146,16 +144,15 @@ func cleanHeader(header []string)[]string {
 
 // oneToNum sends xxxx.1.1.1.1 to xxxx.4
 func oneToNum(s string) string {
-
 	c := regexp.MustCompile("(.1)+$")
 	s1 := []byte(s)
-	s2 := string(c.ReplaceAllFunc(s1,regexfunc))
+	s2 := string(c.ReplaceAllFunc(s1,addOnes))
 	return s2
 }
 
-func regexfunc(reg []byte) []byte  {
-	N := len(bytes.Split(reg,[]byte(keysep)))
-	return []byte(keysep + strconv.Itoa(N-1))
+func addOnes(reg []byte) []byte  {
+	N := len(bytes.Split(reg,[]byte(".")))
+	return []byte("." + strconv.Itoa(N-1))
 }
 
 
