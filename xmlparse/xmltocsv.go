@@ -1,23 +1,22 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"log"
 	"os"
-	"bufio"
-	"strings"
 	"regexp"
 	"strconv"
-	"bytes"
+	"strings"
 )
 
 // delim is the output delimiter (for the output csv file).
-const delim string =  ","
+const delim string = ","
 
 // keysep is the separator used to join the keys of the XML.
 const keysep string = "."
-
 
 // safeAddKey checks if a string key is a key of a map m.
 // If it is a key, then safeAddKey adds as many '.1' suffixes
@@ -26,14 +25,13 @@ const keysep string = "."
 func safeAddKey(key string, m map[string]string) string {
 	for {
 		if _, iskey := m[key]; iskey {
-			key = key + ".1"
+			key = key + keysep + "1"
 		} else {
 			break
 		}
 	}
 	return key
 }
-
 
 // parseRecord returns a map of of key-values from an XML blob.
 // The keys of the map are paths of the XML keys.
@@ -68,7 +66,7 @@ func parseRecord(record string) map[string]string {
 				outmap[name] = content
 			}
 
-			cfield = cfield[: len(cfield) - 1]
+			cfield = cfield[:len(cfield)-1]
 			content = ""
 			depth--
 		case xml.CharData:
@@ -85,10 +83,9 @@ func parseRecord(record string) map[string]string {
 	return outmap
 }
 
-
 // parseLines writes parsed XML to a file object and returns
 // a header array corresponding parsed XML.
-func parseLines(scanner *bufio.Scanner, writer *bufio.Writer)[]string {
+func parseLines(scanner *bufio.Scanner, writer *bufio.Writer) []string {
 	header := make([]string, 0)
 
 	for scanner.Scan() {
@@ -102,40 +99,43 @@ func parseLines(scanner *bufio.Scanner, writer *bufio.Writer)[]string {
 				output = append(output, "")
 			}
 		}
-		
+
 		for field, value := range parsed {
 			output = append(output, value)
 			header = append(header, field)
 		}
-		output = append(output, strconv.Itoa(len(output)) )
+		output = append(output, strconv.Itoa(len(output)))
 		writer.WriteString(strings.Join(output, delim) + "\n")
 	}
 	return header
 }
 
-
-// cleanLines reads a file written by parseLines and writes 
+// cleanLines reads a file written by parseLines and writes
 // the header and adds the correct number of delimiters.
 func cleanLines(n int, scanner *bufio.Scanner, writer *bufio.Writer) {
-	for scanner.Scan() {
+	if n == 0 {
 		txt := scanner.Text()
-		ind := strings.LastIndex(txt, ",")
-		numfields_str := txt[ind + 1: ]
-		txt = txt[: ind]
+		writer.WriteString(txt)
+	} else {
+		for scanner.Scan() {
+			txt := scanner.Text()
+			ind := strings.LastIndex(txt, ",")
+			numfields_str := txt[ind+1:]
+			txt = txt[:ind]
 
-		numfields, _ := strconv.Atoi(numfields_str)
-		k := n - numfields
-		if k > 0 {
-			txt += strings.Repeat(delim,k)
+			numfields, _ := strconv.Atoi(numfields_str)
+			k := n - numfields
+			if k > 0 {
+				txt += strings.Repeat(delim, k)
+			}
+			writer.WriteString(txt + "\n")
 		}
-		writer.WriteString(txt + "\n")
 	}
 }
 
-
 // cleanHeader returns the header with item.1.1.1.1
-// replaced with item.4
-func cleanHeader(header []string)[]string {
+// replaced with item.4  (where "." is the keysep
+func cleanHeader(header []string) []string {
 	for k, field := range header {
 		header[k] = oneToNum(field)
 	}
@@ -146,15 +146,15 @@ func cleanHeader(header []string)[]string {
 func oneToNum(s string) string {
 	c := regexp.MustCompile("(.1)+$")
 	s1 := []byte(s)
-	s2 := string(c.ReplaceAllFunc(s1,addOnes))
+	s2 := string(c.ReplaceAllFunc(s1, addOnes))
 	return s2
 }
 
-func addOnes(reg []byte) []byte  {
-	N := len(bytes.Split(reg,[]byte(".")))
-	return []byte("." + strconv.Itoa(N-1))
+// addOnes 
+func addOnes(reg []byte) []byte {
+	N := len(bytes.Split(reg, []byte(keysep)))
+	return []byte(keysep + strconv.Itoa(N-1))
 }
-
 
 //
 //
@@ -166,15 +166,15 @@ func main() {
 	filepath := os.Args[1]
 
 	file, err := os.Open(filepath)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer file.Close()
-	
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
 	tmpfile, err := os.Create("tmp_output.txt")
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 	defer tmpfile.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -183,18 +183,18 @@ func main() {
 	header := parseLines(scanner, writer)
 	writer.Flush()
 	tmpfile.Close()
-	
+
 	tmpfile, err = os.Open("tmp_output.txt")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer tmpfile.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tmpfile.Close()
 	defer os.Remove("tmp_output.txt")
-	
+
 	outfile, err := os.Create("output.txt")
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 	defer outfile.Close()
 
 	scanner = bufio.NewScanner(tmpfile)
@@ -203,9 +203,6 @@ func main() {
 	writer.WriteString(strings.Join(header, delim) + "\n")
 
 	cleanLines(len(header), scanner, writer)
-	
+
 	writer.Flush()
 }
-
-
-

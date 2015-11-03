@@ -60,3 +60,29 @@ func TestOneToNum(t *testing.T) {
 	}
 }
 
+//
+func TestCleanHeader(t *testing.T) {
+	cases := []struct {
+		in, want []string
+	}{
+		{[]string{"hi", "hi.1", "hi.1.1"},[]string{"hi", "hi.1", "hi.2"}},
+	}
+	for _, c := range cases {
+		got := cleanHeader(c.in)
+		for k, v := range got {
+			if v != c.want[k] {
+			t.Errorf("safeAddKey(%q) == %q, want %q", c.in, got, c.want)
+			}
+		}
+	}
+}
+
+//
+func TestParseRecord(t *testing.T) {
+	// iterate through test dir, read in lines from 
+	// both infile and outfile..
+}
+
+//
+func TestParseLines(t *testing.T) {
+}
