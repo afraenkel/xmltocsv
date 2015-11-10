@@ -156,7 +156,28 @@ func addOnes(reg []byte) []byte {
 	return []byte(keysep + strconv.Itoa(N-1))
 }
 
-//
+// openToProcess is a convenience function for reading from one file and
+// writing to another file.  You must close/flush the output.
+func openToProcess(inpath, outpath string) (*bufio.Scanner, *bufio.Writer, func()) {
+	infile, err := os.Open(inpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	outfile, err := os.Create(outpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	scanner := bufio.NewScanner(infile)
+	writer := bufio.NewWriter(outfile)
+	closeFunc := func() {
+		infile.Close()
+		outfile.Close()
+	}
+	return scanner, writer, closeFunc
+}
+
 //
 func main() {
 	if len(os.Args) != 2 {
@@ -165,44 +186,19 @@ func main() {
 	}
 	filepath := os.Args[1]
 
-	file, err := os.Open(filepath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	tmpfile, err := os.Create("tmp_output.txt")
-	if err != nil {
-		panic(err)
-	}
-	defer tmpfile.Close()
-
-	scanner := bufio.NewScanner(file)
-	writer := bufio.NewWriter(tmpfile)
+	scanner, writer, closeFunc := openToProcess(filepath, "tmp_output.txt")
+	defer closeFunc()
 
 	header := parseLines(scanner, writer)
 	writer.Flush()
-	tmpfile.Close()
 
-	tmpfile, err = os.Open("tmp_output.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer tmpfile.Close()
+	scanner2, writer2, closeFunc2 := openToProcess("tmp_output.txt", "output.txt")
+	defer closeFunc2()
 	defer os.Remove("tmp_output.txt")
 
-	outfile, err := os.Create("output.txt")
-	if err != nil {
-		panic(err)
-	}
-	defer outfile.Close()
-
-	scanner = bufio.NewScanner(tmpfile)
-	writer = bufio.NewWriter(outfile)
 	header = cleanHeader(header)
-	writer.WriteString(strings.Join(header, delim) + "\n")
+	writer2.WriteString(strings.Join(header, delim) + "\n")
 
-	cleanLines(len(header), scanner, writer)
-
-	writer.Flush()
+	cleanLines(len(header), scanner2, writer2)
+	writer2.Flush()
 }
