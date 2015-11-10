@@ -150,7 +150,7 @@ func oneToNum(s string) string {
 	return s2
 }
 
-// addOnes 
+// addOnes
 func addOnes(reg []byte) []byte {
 	N := len(bytes.Split(reg, []byte(keysep)))
 	return []byte(keysep + strconv.Itoa(N-1))
