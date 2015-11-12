@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"flags"
 )
 
 // delim is the output delimiter (for the output csv file).
@@ -230,6 +231,14 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 
 	cleanLines(len(header), scanner, writer)
 }
+
+//
+/* CLI Flags
+input file path: "" -> stdin
+output file path "" -> stdout
+delim: "," 
+keysep: "."
+*/
 
 //
 func main() {
