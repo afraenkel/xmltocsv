@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"io/ioutil"
 )
 
 // delim is the output delimiter (for the output csv file).
@@ -17,6 +18,15 @@ const delim string = ","
 
 // keysep is the separator used to join the keys of the XML.
 const keysep string = "."
+
+
+// FileProcessSpecs contains information on reading/writing
+// file buffers for processing.
+type FileProcessSpecs struct {
+	inpath string
+	outpath string
+	outpathtmp bool
+}
 
 // safeAddKey checks if a string key is a key of a map m.
 // If it is a key, then safeAddKey adds as many '.1' suffixes
@@ -85,7 +95,11 @@ func parseRecord(record string) map[string]string {
 
 // parseLines writes parsed XML to a file object and returns
 // a header array corresponding parsed XML.
-func parseLines(scanner *bufio.Scanner, writer *bufio.Writer) []string {
+func parseLines(infile *os.File, outfile *os.File) []string {
+	scanner:= bufio.NewScanner(infile)
+	writer := bufio.NewWriter(outfile)
+	defer writer.Flush()
+
 	header := make([]string, 0)
 
 	for scanner.Scan() {
@@ -158,7 +172,8 @@ func addOnes(reg []byte) []byte {
 
 // openToProcess is a convenience function for reading from one file and
 // writing to another file.  You must close/flush the output.
-func openToProcess(inpath, outpath string) (*bufio.Scanner, *bufio.Writer, func()) {
+/*
+func openToProcess(inpath, outpath string) (*os.File, *os.File, func()) {
 	infile, err := os.Open(inpath)
 	if err != nil {
 		log.Fatal(err)
@@ -169,13 +184,75 @@ func openToProcess(inpath, outpath string) (*bufio.Scanner, *bufio.Writer, func(
 		log.Fatal(err)
 	}
 	
-	scanner := bufio.NewScanner(infile)
-	writer := bufio.NewWriter(outfile)
 	closeFunc := func() {
 		infile.Close()
 		outfile.Close()
 	}
-	return scanner, writer, closeFunc
+	return infile, outfile, closeFunc 
+}
+*/
+
+// openToProcess is a convenience function for reading from one file and
+// writing to another file.  You must close/flush the output.
+func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
+
+	files := map[string]*os.File{
+		"infile": os.Stdin,
+		"outfile": os.Stdout,
+	}
+
+	if filespec.inpath != "" {
+		infile, err := os.Open(filespec.inpath)
+		files["infile"] = infile
+		if err != nil {
+			log.Fatal(err)
+		}
+	} 
+
+	if filespec.outpathtmp {
+		outfile, err := ioutil.TempFile("./", filespec.outpath)
+		files["outfile"] = outfile
+		if err != nil {
+			log.Fatal(err)
+		}
+		filespec.outpath = outfile.Name()
+	} else if filespec.outpath != "" {
+		outfile, err := os.Create(filespec.outpath)
+		files["outfile"] = outfile
+		if err != nil {
+			log.Fatal(err)
+		}
+	} 
+	
+	closeFunc := func() {
+		files["infile"].Close()
+		files["outfile"].Close()
+	}
+	return files["infile"], files["outfile"], closeFunc 
+}
+
+
+// 
+func processToTemp(filespec *FileProcessSpecs) []string {
+	infile, outfile, closeFunc :=  openToProcess(filespec)
+	defer closeFunc()
+	return parseLines(infile, outfile)
+}
+
+//
+func processToFinal(filespec *FileProcessSpecs, header []string) {
+	infile, outfile, closeFunc := openToProcess(filespec)
+	defer os.Remove(filespec.inpath)
+	defer closeFunc()
+	
+	scanner := bufio.NewScanner(infile)
+	writer := bufio.NewWriter(outfile)
+	defer writer.Flush()
+
+	header = cleanHeader(header)
+	writer.WriteString(strings.Join(header, delim) + "\n")
+
+	cleanLines(len(header), scanner, writer)
 }
 
 //
@@ -184,21 +261,11 @@ func main() {
 		fmt.Println("Usage: ", os.Args[0], "file")
 		os.Exit(1)
 	}
-	filepath := os.Args[1]
+	filespec1 := FileProcessSpecs{inpath: os.Args[1], outpathtmp: true}
 
-	scanner, writer, closeFunc := openToProcess(filepath, "tmp_output.txt")
-	defer closeFunc()
+	header := processToTemp(&filespec1)
+	
+	filespec2 := FileProcessSpecs{inpath: filespec1.outpath}
+	processToFinal(&filespec2, header)
 
-	header := parseLines(scanner, writer)
-	writer.Flush()
-
-	scanner2, writer2, closeFunc2 := openToProcess("tmp_output.txt", "output.txt")
-	defer closeFunc2()
-	defer os.Remove("tmp_output.txt")
-
-	header = cleanHeader(header)
-	writer2.WriteString(strings.Join(header, delim) + "\n")
-
-	cleanLines(len(header), scanner2, writer2)
-	writer2.Flush()
 }
