@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"io/ioutil"
 )
 
 // delim is the output delimiter (for the output csv file).
@@ -19,12 +19,11 @@ const delim string = ","
 // keysep is the separator used to join the keys of the XML.
 const keysep string = "."
 
-
 // FileProcessSpecs contains information on reading/writing
 // file buffers for processing.
 type FileProcessSpecs struct {
-	inpath string
-	outpath string
+	inpath     string
+	outpath    string
 	outpathtmp bool
 }
 
@@ -96,7 +95,7 @@ func parseRecord(record string) map[string]string {
 // parseLines writes parsed XML to a file object and returns
 // a header array corresponding parsed XML.
 func parseLines(infile *os.File, outfile *os.File) []string {
-	scanner:= bufio.NewScanner(infile)
+	scanner := bufio.NewScanner(infile)
 	writer := bufio.NewWriter(outfile)
 	defer writer.Flush()
 
@@ -172,32 +171,10 @@ func addOnes(reg []byte) []byte {
 
 // openToProcess is a convenience function for reading from one file and
 // writing to another file.  You must close/flush the output.
-/*
-func openToProcess(inpath, outpath string) (*os.File, *os.File, func()) {
-	infile, err := os.Open(inpath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	outfile, err := os.Create(outpath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
-	closeFunc := func() {
-		infile.Close()
-		outfile.Close()
-	}
-	return infile, outfile, closeFunc 
-}
-*/
-
-// openToProcess is a convenience function for reading from one file and
-// writing to another file.  You must close/flush the output.
 func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 
 	files := map[string]*os.File{
-		"infile": os.Stdin,
+		"infile":  os.Stdin,
 		"outfile": os.Stdout,
 	}
 
@@ -207,7 +184,7 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 		if err != nil {
 			log.Fatal(err)
 		}
-	} 
+	}
 
 	if filespec.outpathtmp {
 		outfile, err := ioutil.TempFile("./", filespec.outpath)
@@ -222,19 +199,18 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 		if err != nil {
 			log.Fatal(err)
 		}
-	} 
-	
+	}
+
 	closeFunc := func() {
 		files["infile"].Close()
 		files["outfile"].Close()
 	}
-	return files["infile"], files["outfile"], closeFunc 
+	return files["infile"], files["outfile"], closeFunc
 }
 
-
-// 
+//
 func processToTemp(filespec *FileProcessSpecs) []string {
-	infile, outfile, closeFunc :=  openToProcess(filespec)
+	infile, outfile, closeFunc := openToProcess(filespec)
 	defer closeFunc()
 	return parseLines(infile, outfile)
 }
@@ -244,7 +220,7 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 	infile, outfile, closeFunc := openToProcess(filespec)
 	defer os.Remove(filespec.inpath)
 	defer closeFunc()
-	
+
 	scanner := bufio.NewScanner(infile)
 	writer := bufio.NewWriter(outfile)
 	defer writer.Flush()
@@ -264,7 +240,7 @@ func main() {
 	filespec1 := FileProcessSpecs{inpath: os.Args[1], outpathtmp: true}
 
 	header := processToTemp(&filespec1)
-	
+
 	filespec2 := FileProcessSpecs{inpath: filespec1.outpath}
 	processToFinal(&filespec2, header)
 
