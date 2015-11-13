@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/xml"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,14 +12,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"flags"
 )
 
 // delim is the output delimiter (for the output csv file).
-const delim string = ","
+var delim string = ","
 
 // keysep is the separator used to join the keys of the XML.
-const keysep string = "."
+var keysep string = "."
 
 // FileProcessSpecs contains information on reading/writing
 // file buffers for processing.
@@ -233,24 +233,24 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 }
 
 //
-/* CLI Flags
-input file path: "" -> stdin
-output file path "" -> stdout
-delim: "," 
-keysep: "."
-*/
-
-//
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Usage: ", os.Args[0], "file")
 		os.Exit(1)
 	}
-	filespec1 := FileProcessSpecs{inpath: os.Args[1], outpathtmp: true}
+
+	//keysep := flag.String("d", ",", "Output delimiter")
+	//delim := flag.String("k", ".", "Output header key sepearator")
+	argsIn := flag.String("i", "", "Input file path or <NONE>")
+	argsOut := flag.String("o", "", "Output file path or <NONE>")
+
+	flag.Parse()
+
+	filespec1 := FileProcessSpecs{inpath: *argsIn, outpathtmp: true}
 
 	header := processToTemp(&filespec1)
 
-	filespec2 := FileProcessSpecs{inpath: filespec1.outpath}
+	filespec2 := FileProcessSpecs{inpath: filespec1.outpath, outpath: *argsOut}
 	processToFinal(&filespec2, header)
 
 }

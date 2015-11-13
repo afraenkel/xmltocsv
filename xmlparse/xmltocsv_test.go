@@ -105,17 +105,17 @@ func TestParseRecord(t *testing.T) {
 		base := fpath[:len(fpath)-4]
 		ext := fpath[len(fpath)-4:]
 		if ext == ".xml" {
-			cases[base] = append(cases[base],fpath)
+			cases[base] = append(cases[base], fpath)
 		} else {
-			cases[base] = append(cases[base],fpath)
+			cases[base] = append(cases[base], fpath)
 		}
 	}
 	for base, path := range cases {
 		want := readJSON(path[1])
 		file, err := ioutil.ReadFile(path[0])
-			if err != nil {
-				log.Fatal(err)
-			}
+		if err != nil {
+			log.Fatal(err)
+		}
 		got := parseRecord(string(file[:]))
 		for key, val := range want {
 			if val != got[key] {
