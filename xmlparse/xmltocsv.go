@@ -239,8 +239,8 @@ func main() {
 
 	flag.StringVar(&parse.delim,"d", ",", "Output delimiter")
 	flag.StringVar(&parse.keysep,"k", ".", "Output header key sepearator")
-	argsIn := flag.String("i", "", "Input file path or <NONE>")
-	argsOut := flag.String("o", "", "Output file path or <NONE>")
+	argsIn := flag.String("i", "", "Input file path -- defaults to Stdin")
+	argsOut := flag.String("o", "", "Output file path -- defaults to Stdout")
 
 	flag.Parse()
 
