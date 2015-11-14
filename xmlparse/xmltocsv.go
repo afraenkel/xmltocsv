@@ -14,12 +14,6 @@ import (
 	"strings"
 )
 
-// delim is the output delimiter (for the output csv file).
-var delim string = ","
-
-// keysep is the separator used to join the keys of the XML.
-var keysep string = "."
-
 // FileProcessSpecs contains information on reading/writing
 // file buffers for processing.
 type FileProcessSpecs struct {
@@ -28,6 +22,14 @@ type FileProcessSpecs struct {
 	outpathtmp bool
 }
 
+// ParseInfo contains parsing info for the csv formatting
+type ParseInfo struct {
+	delim string
+	keysep string
+}
+
+var parse = ParseInfo{delim: ",", keysep: "."}
+
 // safeAddKey checks if a string key is a key of a map m.
 // If it is a key, then safeAddKey adds as many '.1' suffixes
 // to key until it's not a key of map m, then returns that string.
@@ -35,7 +37,7 @@ type FileProcessSpecs struct {
 func safeAddKey(key string, m map[string]string) string {
 	for {
 		if _, iskey := m[key]; iskey {
-			key = key + keysep + "1"
+			key = key + parse.keysep + "1"
 		} else {
 			break
 		}
@@ -68,7 +70,7 @@ func parseRecord(record string) map[string]string {
 			cfield = append(cfield, name)
 			depth++
 		case xml.EndElement:
-			name := strings.Join(cfield, keysep)
+			name := strings.Join(cfield, parse.keysep)
 
 			m, _ := regexp.MatchString("[[:alnum:]]", content)
 			if m {
@@ -119,7 +121,7 @@ func parseLines(infile *os.File, outfile *os.File) []string {
 			header = append(header, field)
 		}
 		output = append(output, strconv.Itoa(len(output)))
-		writer.WriteString(strings.Join(output, delim) + "\n")
+		writer.WriteString(strings.Join(output, parse.delim) + "\n")
 	}
 	return header
 }
@@ -133,14 +135,14 @@ func cleanLines(n int, scanner *bufio.Scanner, writer *bufio.Writer) {
 	} else {
 		for scanner.Scan() {
 			txt := scanner.Text()
-			ind := strings.LastIndex(txt, ",")
+			ind := strings.LastIndex(txt, parse.delim)
 			numfields_str := txt[ind+1:]
 			txt = txt[:ind]
 
 			numfields, _ := strconv.Atoi(numfields_str)
 			k := n - numfields
 			if k > 0 {
-				txt += strings.Repeat(delim, k)
+				txt += strings.Repeat(parse.delim, k)
 			}
 			writer.WriteString(txt + "\n")
 		}
@@ -148,7 +150,7 @@ func cleanLines(n int, scanner *bufio.Scanner, writer *bufio.Writer) {
 }
 
 // cleanHeader returns the header with item.1.1.1.1
-// replaced with item.4  (where "." is the keysep
+// replaced with item.4  (where "." is the keysep)
 func cleanHeader(header []string) []string {
 	for k, field := range header {
 		header[k] = oneToNum(field)
@@ -158,7 +160,7 @@ func cleanHeader(header []string) []string {
 
 // oneToNum sends xxxx.1.1.1.1 to xxxx.4
 func oneToNum(s string) string {
-	c := regexp.MustCompile("(.1)+$")
+	c := regexp.MustCompile("(" + parse.keysep + "1)+$")
 	s1 := []byte(s)
 	s2 := string(c.ReplaceAllFunc(s1, addOnes))
 	return s2
@@ -166,8 +168,8 @@ func oneToNum(s string) string {
 
 // addOnes
 func addOnes(reg []byte) []byte {
-	N := len(bytes.Split(reg, []byte(keysep)))
-	return []byte(keysep + strconv.Itoa(N-1))
+	N := len(bytes.Split(reg, []byte(parse.keysep)))
+	return []byte(parse.keysep + strconv.Itoa(N-1))
 }
 
 // openToProcess is a convenience function for reading from one file and
@@ -227,20 +229,16 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 	defer writer.Flush()
 
 	header = cleanHeader(header)
-	writer.WriteString(strings.Join(header, delim) + "\n")
+	writer.WriteString(strings.Join(header, parse.delim) + "\n")
 
 	cleanLines(len(header), scanner, writer)
 }
 
 //
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("Usage: ", os.Args[0], "file")
-		os.Exit(1)
-	}
 
-	//keysep := flag.String("d", ",", "Output delimiter")
-	//delim := flag.String("k", ".", "Output header key sepearator")
+	flag.StringVar(&parse.delim,"d", ",", "Output delimiter")
+	flag.StringVar(&parse.keysep,"k", ".", "Output header key sepearator")
 	argsIn := flag.String("i", "", "Input file path or <NONE>")
 	argsOut := flag.String("o", "", "Output file path or <NONE>")
 
