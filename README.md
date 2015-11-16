@@ -4,7 +4,6 @@ xmltocsv is a tool to convert a list of (perhaps nested) xml blobs to a flattene
 
 ## To Do
 
-* deletion of tmp file given program exit.
 * command line flags: usage messages / split out into init
 * restructure into packages instead of a single file
 * more tests (multiline xml, different delim, keysep, API tests)

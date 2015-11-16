@@ -17,17 +17,20 @@ import (
 // FileProcessSpecs contains information on reading/writing
 // file buffers for processing.
 type FileProcessSpecs struct {
-	inpath     string
-	outpath    string
+	inpath  string
+	outpath string
+
 	outpathtmp bool
 }
 
 // ParseInfo contains parsing info for the csv formatting
 type ParseInfo struct {
-	delim string
+	delim  string
 	keysep string
 }
 
+// Defaults for processing
+var filespec FileProcessSpecs
 var parse = ParseInfo{delim: ",", keysep: "."}
 
 // safeAddKey checks if a string key is a key of a map m.
@@ -160,16 +163,16 @@ func cleanHeader(header []string) []string {
 
 // oneToNum sends xxxx.1.1.1.1 to xxxx.4
 func oneToNum(s string) string {
-	c := regexp.MustCompile("(" + parse.keysep + "1)+$")
+	addOnes := func(reg []byte) []byte {
+		N := len(bytes.Split(reg, []byte(parse.keysep)))
+		return []byte(parse.keysep + strconv.Itoa(N-1))
+	}
+
+	regex := strings.Replace("(%s1)+$", "%s", parse.keysep, 1)
+	c := regexp.MustCompile(regex)
 	s1 := []byte(s)
 	s2 := string(c.ReplaceAllFunc(s1, addOnes))
 	return s2
-}
-
-// addOnes
-func addOnes(reg []byte) []byte {
-	N := len(bytes.Split(reg, []byte(parse.keysep)))
-	return []byte(parse.keysep + strconv.Itoa(N-1))
 }
 
 // openToProcess is a convenience function for reading from one file and
@@ -196,6 +199,7 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 			log.Fatal(err)
 		}
 		filespec.outpath = outfile.Name()
+
 	} else if filespec.outpath != "" {
 		outfile, err := os.Create(filespec.outpath)
 		files["outfile"] = outfile
@@ -207,12 +211,15 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 	closeFunc := func() {
 		files["infile"].Close()
 		files["outfile"].Close()
+		// if filespec.outpathtmp {
+		// 	os.Remove(filespec.outpath)
+		// }
 	}
 	return files["infile"], files["outfile"], closeFunc
 }
 
 //
-func processToTemp(filespec *FileProcessSpecs) []string {
+func processToTemp(filespec *FileProcessSpecs)[]string {
 	infile, outfile, closeFunc := openToProcess(filespec)
 	defer closeFunc()
 	return parseLines(infile, outfile)
@@ -221,7 +228,6 @@ func processToTemp(filespec *FileProcessSpecs) []string {
 //
 func processToFinal(filespec *FileProcessSpecs, header []string) {
 	infile, outfile, closeFunc := openToProcess(filespec)
-	defer os.Remove(filespec.inpath)
 	defer closeFunc()
 
 	scanner := bufio.NewScanner(infile)
@@ -237,18 +243,22 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 //
 func main() {
 
-	flag.StringVar(&parse.delim,"d", ",", "Output delimiter")
-	flag.StringVar(&parse.keysep,"k", ".", "Output header key sepearator")
+	flag.StringVar(&parse.delim, "d", ",", "Output delimiter")
+	flag.StringVar(&parse.keysep, "k", ".", "Output header key sepearator")
 	argsIn := flag.String("i", "", "Input file path -- defaults to Stdin")
 	argsOut := flag.String("o", "", "Output file path -- defaults to Stdout")
 
 	flag.Parse()
 
-	filespec1 := FileProcessSpecs{inpath: *argsIn, outpathtmp: true}
+	filespec.inpath = *argsIn
+	filespec.outpathtmp = true
 
-	header := processToTemp(&filespec1)
+	header := processToTemp(&filespec)
 
-	filespec2 := FileProcessSpecs{inpath: filespec1.outpath, outpath: *argsOut}
-	processToFinal(&filespec2, header)
+	filespec.inpath = filespec.outpath
+	filespec.outpath = *argsOut
+	filespec.outpathtmp = false
+
+	processToFinal(&filespec, header)
 
 }

@@ -41,23 +41,6 @@ func TestSafeAddKey(t *testing.T) {
 	}
 }
 
-//
-func TestAddOnes(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{".1", ".1"},
-		{".1.1", ".2"},
-		{".1.1.1", ".3"},
-		{".1.1.1.1", ".4"},
-	}
-	for _, c := range cases {
-		got := addOnes([]byte(c.in))
-		if string(got) != c.want {
-			t.Errorf("safeAddKey(%q) == %q, want %q", c.in, got, c.want)
-		}
-	}
-}
 
 //
 func TestOneToNum(t *testing.T) {
