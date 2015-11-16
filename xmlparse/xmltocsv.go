@@ -211,7 +211,6 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 	return files["infile"], files["outfile"], closeFunc
 }
 
-
 func processToTemp(filespec *FileProcessSpecs) ([]string, func()) {
 	infile, outfile, closeFunc := openToProcess(filespec)
 	defer closeFunc()
@@ -219,7 +218,7 @@ func processToTemp(filespec *FileProcessSpecs) ([]string, func()) {
 	writer := bufio.NewWriter(outfile)
 	defer writer.Flush()
 
-	return parseLines(scanner, writer), func(){ os.Remove(outfile.Name()) }
+	return parseLines(scanner, writer), func() { os.Remove(outfile.Name()) }
 }
 
 //
@@ -251,7 +250,7 @@ func main() {
 
 	header, rmtemp := processToTemp(&filespec)
 	defer rmtemp()
-	
+
 	filespec.inpath = filespec.outpath
 	filespec.outpath = *argsOut
 	filespec.outpathtmp = false
