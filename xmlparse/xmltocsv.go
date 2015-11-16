@@ -100,13 +100,9 @@ func parseRecord(record string) map[string]string {
 
 // parseLines writes parsed XML to a file object and returns
 // a header array corresponding parsed XML.
-func parseLines(infile *os.File, outfile *os.File) []string {
-	scanner := bufio.NewScanner(infile)
-	writer := bufio.NewWriter(outfile)
+func parseLines(scanner *bufio.Scanner, writer *bufio.Writer) []string {
 	defer writer.Flush()
-
 	header := make([]string, 0)
-
 	for scanner.Scan() {
 		parsed := parseRecord(scanner.Text())
 		output := make([]string, 0)
@@ -211,18 +207,19 @@ func openToProcess(filespec *FileProcessSpecs) (*os.File, *os.File, func()) {
 	closeFunc := func() {
 		files["infile"].Close()
 		files["outfile"].Close()
-		// if filespec.outpathtmp {
-		// 	os.Remove(filespec.outpath)
-		// }
 	}
 	return files["infile"], files["outfile"], closeFunc
 }
 
-//
-func processToTemp(filespec *FileProcessSpecs)[]string {
+
+func processToTemp(filespec *FileProcessSpecs) ([]string, func()) {
 	infile, outfile, closeFunc := openToProcess(filespec)
 	defer closeFunc()
-	return parseLines(infile, outfile)
+	scanner := bufio.NewScanner(infile)
+	writer := bufio.NewWriter(outfile)
+	defer writer.Flush()
+
+	return parseLines(scanner, writer), func(){ os.Remove(outfile.Name()) }
 }
 
 //
@@ -242,7 +239,6 @@ func processToFinal(filespec *FileProcessSpecs, header []string) {
 
 //
 func main() {
-
 	flag.StringVar(&parse.delim, "d", ",", "Output delimiter")
 	flag.StringVar(&parse.keysep, "k", ".", "Output header key sepearator")
 	argsIn := flag.String("i", "", "Input file path -- defaults to Stdin")
@@ -253,8 +249,9 @@ func main() {
 	filespec.inpath = *argsIn
 	filespec.outpathtmp = true
 
-	header := processToTemp(&filespec)
-
+	header, rmtemp := processToTemp(&filespec)
+	defer rmtemp()
+	
 	filespec.inpath = filespec.outpath
 	filespec.outpath = *argsOut
 	filespec.outpathtmp = false
